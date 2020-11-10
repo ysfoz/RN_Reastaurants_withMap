@@ -1,7 +1,7 @@
 import Axios from "axios";
-import React, { useEffect,useState } from "react";
+import React, { useEffect,useState,useRef } from "react";
 import { SafeAreaView, View, Text,FlatList } from "react-native";
-import MapView from "react-native-maps";
+import MapView, { Marker } from "react-native-maps";
 
 
 import { City, RestaurantDetail, SearchBar } from "./components";
@@ -9,7 +9,8 @@ import { City, RestaurantDetail, SearchBar } from "./components";
 let originalList =[]
 const Main = (props) => {
   const[cityList,setCityList] = useState([])
-
+  const[restaurants,setRestaurants] =useState([])
+  const mapRef = useRef(null)
   const fetchData = async()=>{
   const {data} = await Axios.get('https://opentable.herokuapp.com/api/cities',
   );
@@ -27,8 +28,18 @@ const Main = (props) => {
     setCityList(filteredList)
     }
 
-  const citySelect =(city) => {
+  const citySelect = async(city) => {
+  const {data :{restaurants}} = await Axios.get('https://opentable.herokuapp.com/api/restaurants?city=' + city)
+  setRestaurants(restaurants)
 
+  const restaurantsCoordinates = restaurants.map((item) =>  {
+    return ({
+    latitude: item.lat,
+    longitude: item.lng,
+    })
+})
+ 
+  mapRef.current.fitToCoordinates(restaurantsCoordinates)
   }
 
   useEffect(()=> {fetchData()},[])
@@ -37,14 +48,25 @@ const Main = (props) => {
     <SafeAreaView style={{ flex: 1 }}>
       <View style={{ flex: 1 }}>
         <MapView
+          ref={mapRef}
           style={{ flex: 1 }}
           initialRegion={{
             latitude: 37.78825,
             longitude: -122.4324,
             latitudeDelta: 0.0922,
             longitudeDelta: 0.0421,
-          }}
-        />
+          }}>
+            {restaurants.map((r,index)=> (
+              <Marker
+              key ={index}
+              coordinate ={{
+                latitude:r.lat,
+                longitude:r.lng
+              }}
+              />
+            ))}
+            
+        </MapView>
         <View style = {{position:'absolute'}}>
           <SearchBar onSearchText = {searchText} />
           <FlatList
@@ -52,7 +74,7 @@ const Main = (props) => {
           showsHorizontalScrollIndicator ={false}
           keyExtractor ={(_,index) => index.toString()}
           data = {cityList}
-          renderItem={({item}) => <City CityName = {item} onselect = {()=> citySelect(item)}/>} 
+          renderItem={({item}) => <City CityName = {item} onSelect = {()=> citySelect(item)}/>} 
           />
         </View>
       </View>
